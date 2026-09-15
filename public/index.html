@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Card Centering Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f0f0f; --surface: #1a1a1a; --surface2: #222; --border: #2e2e2e;
+      --text: #f0f0f0; --muted: #888; --accent: #3b82f6; --accent-bg: rgba(59,130,246,0.12);
+      --green: #22c55e; --green-bg: rgba(34,197,94,0.12);
+      --yellow: #eab308; --yellow-bg: rgba(234,179,8,0.12);
+      --red: #ef4444; --red-bg: rgba(239,68,68,0.12);
+      --purple: #a855f7; --purple-bg: rgba(168,85,247,0.12);
+      --radius: 10px; --radius-sm: 6px;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.5; min-height: 100vh; }
+    .container { max-width: 920px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+    header h1 { font-size: 20px; font-weight: 600; }
+    .status-pill { display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 99px; background: var(--surface); border: 1px solid var(--border); font-size: 12px; color: var(--muted); cursor: pointer; }
+    .status-pill:hover { border-color: #444; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.red { background: var(--red); }
+
+    /* Page tabs */
+    .page-tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+    .page-tab { padding: 8px 20px; font-size: 14px; cursor: pointer; background: transparent; border: none; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; display: flex; align-items: center; gap: 6px; }
+    .page-tab:hover { color: var(--text); }
+    .page-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+    .page-tab .tab-count { background: var(--surface2); color: var(--muted); font-size: 11px; padding: 1px 6px; border-radius: 99px; }
+    .page-tab.active .tab-count { background: var(--accent-bg); color: var(--accent); }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+    .panel-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+    .mode-tabs { display: flex; gap: 6px; margin-bottom: 1.25rem; }
+    .mode-tab { padding: 6px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 13px; cursor: pointer; transition: all .15s; }
+    .mode-tab:hover { border-color: #444; color: var(--text); }
+    .mode-tab.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+    input[type=text], input[type=number], select { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 13px; padding: 7px 10px; outline: none; transition: border-color .15s; }
+    input[type=text]:focus, input[type=number]:focus, select:focus { border-color: var(--accent); }
+    input[type=text] { width: 100%; margin-bottom: 12px; }
+    select { cursor: pointer; }
+    .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .fg { display: flex; flex-direction: column; gap: 4px; }
+    .fg label { font-size: 11px; color: var(--muted); }
+    .note { font-size: 12px; color: var(--muted); padding: 8px 10px; background: var(--surface2); border-radius: var(--radius-sm); margin-top: 12px; }
+    .search-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 9px 22px; background: var(--accent); border: none; border-radius: var(--radius-sm); color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+    .search-btn:hover { opacity: .85; }
+    .search-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 1rem; }
+    .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .9rem 1rem; }
+    .metric-lbl { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .metric-val { font-size: 22px; font-weight: 600; }
+    .progress-wrap { margin-bottom: 1rem; }
+    .progress-lbl { font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+    .progress { height: 3px; background: var(--surface); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
+    .sort-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+
+    /* Result cards */
+    .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 12px; transition: border-color .15s; position: relative; }
+    .result-card:hover { border-color: #444; }
+    .result-card.top { border-color: var(--green); }
+    .result-card.viewed { opacity: 0.5; }
+    .card-top { display: flex; gap: 1rem; }
+    .img-strip { display: flex; gap: 6px; flex-shrink: 0; }
+    .img-box { width: 78px; height: 110px; border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; background: var(--surface2); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 20px; flex-shrink: 0; position: relative; }
+    .img-box img { width: 100%; height: 100%; object-fit: cover; }
+    .img-label { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; font-weight: 700; color: #fff; background: rgba(0,0,0,0.7); padding: 2px 0; text-transform: uppercase; letter-spacing: .04em; }
+    .card-title { font-size: 13px; font-weight: 500; margin-bottom: 5px; line-height: 1.4; }
+    .badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+    .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px; }
+    .badge-green { background: var(--green-bg); color: var(--green); }
+    .badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+    .badge-red { background: var(--red-bg); color: var(--red); }
+    .badge-blue { background: var(--accent-bg); color: var(--accent); }
+    .badge-purple { background: var(--purple-bg); color: var(--purple); }
+    .badge-gray { background: var(--surface2); color: var(--muted); }
+    .scores-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .score-box { background: var(--surface2); border-radius: var(--radius-sm); padding: 8px 10px; }
+    .score-box-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+    .score-num { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .bar-row { display: flex; gap: 8px; }
+    .bar-wrap { flex: 1; }
+    .bar-lbl { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    .bar-track { height: 5px; background: var(--border); border-radius: 3px; position: relative; }
+    .bar-fill { height: 100%; border-radius: 3px; position: absolute; top: 0; left: 0; }
+    .bar-mid { position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: #555; }
+    .score-note { font-size: 11px; color: var(--muted); line-height: 1.4; margin-top: 4px; }
+    .card-meta { font-size: 12px; color: var(--muted); display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+    .ebay-link { font-size: 12px; color: var(--accent); text-decoration: none; }
+    .ebay-link:hover { text-decoration: underline; }
+    .slab-warn { font-size: 11px; color: var(--yellow); }
+
+    /* Viewed checkbox button */
+    .viewed-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 10px; transition: all .15s; user-select: none; }
+    .viewed-btn:hover { border-color: #444; color: var(--text); }
+    .viewed-btn.checked { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+    .viewed-btn .chk { font-size: 14px; }
+
+    /* Viewed page */
+    .viewed-empty { text-align: center; padding: 4rem 2rem; color: var(--muted); }
+    .viewed-empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .viewed-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .clear-btn { font-size: 12px; color: var(--red); background: var(--red-bg); border: 1px solid transparent; border-radius: var(--radius-sm); padding: 4px 12px; cursor: pointer; }
+    .clear-btn:hover { border-color: var(--red); }
+    .viewed-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1.25rem; margin-bottom: 10px; display: flex; gap: 12px; align-items: center; }
+    .viewed-card-img { width: 52px; height: 72px; border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; background: var(--surface2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--muted); }
+    .viewed-card-img img { width: 100%; height: 100%; object-fit: cover; }
+    .viewed-card-info { flex: 1; min-width: 0; }
+    .viewed-card-title { font-size: 13px; font-weight: 500; margin-bottom: 3px; line-height: 1.3; }
+    .viewed-card-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .remove-viewed { font-size: 18px; color: var(--muted); cursor: pointer; background: none; border: none; padding: 4px; line-height: 1; flex-shrink: 0; }
+    .remove-viewed:hover { color: var(--red); }
+
+    .empty { text-align: center; padding: 3rem; color: var(--muted); }
+    .empty-icon { font-size: 32px; margin-bottom: 10px; }
+    @media (max-width: 600px) { .metrics { grid-template-columns: repeat(2,1fr); } .scores-row { grid-template-columns: 1fr; } .filters { flex-direction: column; } }
+    .whitening-box { background: var(--surface2); border-radius: var(--radius-sm); padding: 8px 10px; margin-top: 8px; }
+    .whitening-box-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+    .whitening-severity { font-size: 15px; font-weight: 600; margin-bottom: 3px; }
+    .whitening-none { color: #22c55e; }
+    .whitening-minimal { color: #84cc16; }
+    .whitening-moderate { color: #eab308; }
+    .whitening-heavy { color: #ef4444; }
+    .whitening-unknown { color: var(--muted); }
+    .whitening-locations { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+    .whitening-loc { font-size: 10px; background: var(--border); color: var(--muted); padding: 1px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🃏 Card Centering Analyzer</h1>
+    <div class="status-pill" onclick="checkHealth()">
+      <span class="dot" id="dot"></span>
+      <span id="status-text">Connecting...</span>
+    </div>
+  </header>
+
+  <!-- Page tabs -->
+  <div class="page-tabs">
+    <button class="page-tab active" onclick="showPage('search')" id="ptab-search">Search</button>
+    <button class="page-tab" onclick="showPage('viewed')" id="ptab-viewed">
+      Viewed <span class="tab-count" id="viewed-count">0</span>
+    </button>
+  </div>
+
+  <!-- SEARCH PAGE -->
+  <div class="page active" id="page-search">
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="setMode('raw')" id="tab-raw">Raw listings</button>
+      <button class="mode-tab" onclick="setMode('ag')" id="tab-ag">Authenticity Guarantee</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label">Search</div>
+      <input type="text" id="q" value="Monkey D Luffy College Basketball US Voyage P-055" placeholder="Card name, set, number..." />
+      <div class="filters">
+        <div class="fg"><label>Min price ($)</label><input type="number" id="minPrice" placeholder="Any" style="width:90px;" /></div>
+        <div class="fg"><label>Max price ($)</label><input type="number" id="maxPrice" placeholder="Any" style="width:90px;" /></div>
+        <div class="fg"><label>Min seller rating %</label><input type="number" id="minRating" placeholder="e.g. 98" min="0" max="100" style="width:115px;" /></div>
+        <div class="fg"><label>Min feedback count</label><input type="number" id="minFeedback" placeholder="e.g. 50" style="width:115px;" /></div>
+        <div class="fg">
+          <label>Min front score</label>
+          <select id="minScore">
+            <option value="0">Any</option>
+            <option value="60">60+ (PSA 9 range)</option>
+            <option value="75">75+ (good)</option>
+            <option value="85" selected>85+ (PSA 10 candidate)</option>
+            <option value="95">95+ (near perfect)</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Fetch up to</label>
+          <select id="limit">
+            <option value="10">10 listings</option>
+            <option value="20" selected>20 listings</option>
+            <option value="40">40 listings</option>
+          </select>
+        </div>
+        <div class="fg" style="justify-content:flex-end;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="checkWhitening" style="width:14px;height:14px;cursor:pointer;" />
+            Check back whitening
+          </label>
+        </div>
+      </div>
+      <div class="note" id="mode-note">Fetches all listing photos. Analyzes front always; back only if a back photo is present. PSA allows 75/25 on backs.</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:14px;">
+        <button class="search-btn" id="search-btn" onclick="runSearch()" style="margin-top:0;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Search &amp; analyze
+        </button>
+        <button id="stop-btn" onclick="stopSearch()" style="display:none;margin-top:0;padding:9px 18px;background:var(--red-bg);border:1px solid var(--red);border-radius:var(--radius-sm);color:var(--red);font-size:14px;font-weight:500;cursor:pointer;">
+          ✕ Stop
+        </button>
+        <button onclick="resetViewed()" style="margin-top:0;padding:9px 14px;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:13px;cursor:pointer;" title="Reset all viewed listings">
+          ↺ Reset viewed
+        </button>
+      </div>
+    </div>
+
+    <div id="results-wrap" style="display:none;">
+      <div class="progress-wrap" id="prog-wrap">
+        <div class="progress-lbl" id="prog-lbl">Searching...</div>
+        <div class="progress"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+      </div>
+      <div class="metrics" id="metrics" style="display:none;">
+        <div class="metric"><div class="metric-lbl">Found on eBay</div><div class="metric-val" id="m-found">—</div></div>
+        <div class="metric"><div class="metric-lbl">Analyzed</div><div class="metric-val" id="m-analyzed">0</div></div>
+        <div class="metric"><div class="metric-lbl">Passed filters</div><div class="metric-val" id="m-passed">—</div></div>
+        <div class="metric"><div class="metric-lbl">Best front score</div><div class="metric-val" id="m-best">—</div></div>
+      </div>
+      <div class="sort-row">
+        Sort by:
+        <select id="sort-sel" onchange="renderResults()">
+          <option value="front">Front score</option>
+          <option value="price">Price low→high</option>
+          <option value="rating">Seller rating</option>
+          <option value="lr">L/R balance</option>
+          <option value="tb">T/B balance</option>
+        </select>
+      </div>
+      <div id="results-list"></div>
+    </div>
+  </div>
+
+  <!-- VIEWED PAGE -->
+  <div class="page" id="page-viewed">
+    <div class="viewed-header">
+      <div style="font-size:13px;color:var(--muted);" id="viewed-subtitle">Cards you've marked as viewed</div>
+      <button class="clear-btn" onclick="clearAllViewed()">Clear all</button>
+    </div>
+    <div id="viewed-list"></div>
+  </div>
+</div>
+
+<script>
+let mode = "raw";
+let results = [];
+let resultsMap = {};
+let abortSearch = false;
+let viewed = JSON.parse(localStorage.getItem('viewed_listings') || '{}');
+
+function saveViewed() {
+  localStorage.setItem('viewed_listings', JSON.stringify(viewed));
+  updateViewedCount();
+}
+
+function updateViewedCount() {
+  const count = Object.keys(viewed).length;
+  document.getElementById('viewed-count').textContent = count;
+}
+
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('ptab-' + page).classList.add('active');
+  if (page === 'viewed') renderViewedPage();
+}
+
+async function checkHealth() {
+  const dot = document.getElementById('dot'), txt = document.getElementById('status-text');
+  dot.className = 'dot'; txt.textContent = 'Connecting...';
+  try {
+    const r = await fetch('/api/health');
+    if (r.ok) { dot.className = 'dot green'; txt.textContent = 'Connected'; }
+    else throw new Error();
+  } catch { dot.className = 'dot red'; txt.textContent = 'Server error'; }
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('tab-raw').className = 'mode-tab' + (m==='raw'?' active':'');
+  document.getElementById('tab-ag').className = 'mode-tab' + (m==='ag'?' active':'');
+  document.getElementById('mode-note').textContent = m==='raw'
+    ? 'Fetches all listing photos. Analyzes front always; back only if a back photo is present. PSA allows 75/25 on backs.'
+    : 'AG listings may use stock photos — centering may show as N/A.';
+}
+
+function toggleViewed(id) {
+  const listing = resultsMap[id];
+  if (!listing) return;
+  if (viewed[id]) {
+    delete viewed[id];
+  } else {
+    viewed[id] = {
+      id: listing.id,
+      title: listing.title,
+      price: listing.price,
+      imageUrl: listing.imageUrl,
+      url: listing.url,
+      sellerRating: listing.sellerRating,
+      frontScore: listing.front?.score || 0,
+      backScore: listing.back?.score || null,
+      viewedAt: new Date().toISOString(),
+    };
+  }
+  saveViewed();
+  renderResults();
+}
+
+function stopSearch() {
+  abortSearch = true;
+  document.getElementById('stop-btn').style.display = 'none';
+  document.getElementById('prog-lbl').textContent = 'Stopped — showing results so far';
+}
+
+function scoreColor(s) { return s>=90?'#22c55e':s>=75?'#eab308':'#ef4444'; }
+function scoreBadgeClass(s) { return s>=90?'badge-green':s>=75?'badge-yellow':'badge-red'; }
+function frontLabel(s) {
+  if (!s) return 'unclear';
+  if (s>=90) return 'PSA 10 candidate';
+  if (s>=75) return 'PSA 9 range';
+  if (s>=60) return 'marginal';
+  return 'poor';
+}
+
+function renderBars(lr, tb) {
+  const lc = scoreColor(100-Math.abs(lr-50)*2);
+  const tc = scoreColor(100-Math.abs(tb-50)*2);
+  return `<div class="bar-row">
+    <div class="bar-wrap"><div class="bar-lbl">L/R: ${lr}/${100-lr}</div><div class="bar-track"><div class="bar-fill" style="width:${lr}%;background:${lc};"></div><div class="bar-mid"></div></div></div>
+    <div class="bar-wrap"><div class="bar-lbl">T/B: ${tb}/${100-tb}</div><div class="bar-track"><div class="bar-fill" style="width:${tb}%;background:${tc};"></div><div class="bar-mid"></div></div></div>
+  </div>`;
+}
+
+function renderWhiteningBox(w) {
+  const severityClass = {none:'whitening-none', minimal:'whitening-minimal', moderate:'whitening-moderate', heavy:'whitening-heavy', unknown:'whitening-unknown'}[w.severity] || 'whitening-unknown';
+  const severityLabel = {none:'✓ No whitening', minimal:'Minimal whitening', moderate:'Moderate whitening', heavy:'Heavy whitening', unknown:'Could not assess'}[w.severity] || w.severity;
+  const impactLabel = {none:'No grade impact', minor:'Minor impact (0-1 grade)', moderate:'Moderate impact (1-2 grades)', severe:'Severe impact (2+ grades)', unknown:'Impact unknown'}[w.grade_impact] || w.grade_impact;
+  const locs = w.locations?.length ? w.locations.map(l => `<span class="whitening-loc">${l}</span>`).join('') : '';
+  return `<div class="whitening-box">
+    <div class="whitening-box-label">Back Whitening Check ${w.psa10_possible ? '<span style="color:#22c55e;font-weight:500;">✓ PSA 10 possible</span>' : '<span style="color:#eab308;">⚠ May affect grade</span>'}</div>
+    <div class="whitening-severity ${severityClass}">${severityLabel}</div>
+    ${locs ? `<div class="whitening-locations">${locs}</div>` : ''}
+    <div style="font-size:11px;color:var(--muted);">${impactLabel}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px;">${w.notes||''}</div>
+  </div>`;
+}
+
+function renderResults() {
+  const by = document.getElementById('sort-sel').value;
+  const sorted = [...results].sort((a,b) => {
+    if (by==='front') return (b.front?.score||0)-(a.front?.score||0);
+    if (by==='price') return parseFloat(a.price)-parseFloat(b.price);
+    if (by==='rating') return b.sellerRating-a.sellerRating;
+    if (by==='lr') return Math.abs((a.front?.lr||50)-50)-Math.abs((b.front?.lr||50)-50);
+    if (by==='tb') return Math.abs((a.front?.tb||50)-50)-Math.abs((b.front?.tb||50)-50);
+    return 0;
+  });
+
+  if (!sorted.length) {
+    document.getElementById('results-list').innerHTML='<div class="empty"><div class="empty-icon">🔍</div>No listings passed your filters.</div>';
+    return;
+  }
+
+  // Rebuild resultsMap so toggleViewed can look up listings by id
+  results.forEach(r => { resultsMap[r.id] = r; });
+
+  document.getElementById('results-list').innerHTML = sorted.map(r => {
+    const f = r.front, bk = r.back;
+    const isTop = (f?.score||0) >= 85;
+    const hasBack = bk && bk.score > 0;
+    const isViewed = !!viewed[r.id];
+
+    const frontBox = f && f.score > 0
+      ? `<div class="score-box">
+          <div class="score-box-label">Front ${f.inSlab?'<span class="slab-warn">⚠ slab</span>':''}</div>
+          <div class="score-num" style="color:${scoreColor(f.score)}">${f.score}/100</div>
+          ${renderBars(f.lr, f.tb)}
+          <div class="score-note">${f.notes||''}</div>
+        </div>`
+      : `<div class="score-box"><div class="score-box-label">Front</div><div class="score-note">Stock or unclear image</div></div>`;
+
+    const backBox = hasBack
+      ? `<div class="score-box">
+          <div class="score-box-label">Back <span style="font-size:9px;font-weight:400;">(PSA: 75/25 ok)</span></div>
+          <div class="score-num" style="color:${bk.meetsBackStandard?'#22c55e':'#eab308'}">${bk.score}/100 ${bk.meetsBackStandard?'✓':''}</div>
+          ${renderBars(bk.lr, bk.tb)}
+          <div class="score-note">${bk.notes||''}</div>
+        </div>`
+      : `<div class="score-box"><div class="score-box-label">Back</div><div class="score-note" style="font-style:italic;">No back photo</div></div>`;
+
+    return `<div class="result-card ${isTop?'top':''} ${isViewed?'viewed':''}" id="card-${r.id}">
+      <div class="card-top">
+        <div class="img-strip">
+          <div class="img-box">${r.imageUrl?`<img src="${r.imageUrl}" alt="front" onerror="this.parentNode.innerHTML='📷'"/>`:'📷'}<div class="img-label">Front</div></div>
+          ${r.backImageUrl?`<div class="img-box"><img src="${r.backImageUrl}" alt="back" onerror="this.parentNode.innerHTML='📷'"/><div class="img-label">Back</div></div>`:''}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div class="card-title">${r.title}</div>
+          <div class="badges">
+            ${f&&f.score>0?`<span class="badge ${scoreBadgeClass(f.score)}">Front ${f.score}/100 — ${frontLabel(f.score)}</span>`:''}
+            ${hasBack?`<span class="badge ${bk.meetsBackStandard?'badge-green':'badge-yellow'}">Back ${bk.score}/100 ${bk.meetsBackStandard?'✓ PSA ok':'⚠ check'}</span>`:'<span class="badge badge-gray">No back photo</span>'}
+            ${isTop?'<span class="badge badge-green">⭐ Top pick</span>':''}
+            ${r.isAG?'<span class="badge badge-blue">AG</span>':''}
+            ${r.whitening ? `<span class="badge ${r.whitening.severity==='none'?'badge-green':r.whitening.severity==='minimal'?'badge-green':r.whitening.severity==='moderate'?'badge-yellow':'badge-red'}">Whitening: ${r.whitening.severity}</span>` : ''}
+          </div>
+          <div class="card-meta">
+            <span>$${parseFloat(r.price).toFixed(2)}</span>
+            <span>${r.sellerRating}% (${Number(r.feedbackCount).toLocaleString()} reviews)</span>
+            ${r.condition?`<span>${r.condition}</span>`:''}
+            <span>${r.photoCount} photo${r.photoCount!==1?'s':''}</span>
+            <a class="ebay-link" href="${r.url}" target="_blank">View on eBay ↗</a>
+            <button class="viewed-btn ${isViewed?'checked':''}" onclick="toggleViewed('${r.id}')">
+              <span class="chk">${isViewed?'✓':'○'}</span> ${isViewed?'Viewed':'Mark viewed'}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="scores-row">${frontBox}${backBox}</div>
+      ${r.whitening ? renderWhiteningBox(r.whitening) : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderViewedPage() {
+  const items = Object.values(viewed).sort((a,b) => new Date(b.viewedAt) - new Date(a.viewedAt));
+  const subtitle = document.getElementById('viewed-subtitle');
+  subtitle.textContent = items.length ? `${items.length} listing${items.length!==1?'s':''} marked as viewed` : 'Cards you\'ve marked as viewed';
+
+  if (!items.length) {
+    document.getElementById('viewed-list').innerHTML = `
+      <div class="viewed-empty">
+        <div class="viewed-empty-icon">👁</div>
+        <div style="font-size:15px;font-weight:500;margin-bottom:6px;">No viewed listings yet</div>
+        <div style="font-size:13px;">Mark listings as viewed from the Search tab to track what you've already checked on eBay.</div>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('viewed-list').innerHTML = items.map(item => {
+    const date = new Date(item.viewedAt).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    return `<div class="viewed-card">
+      <div class="viewed-card-img">${item.imageUrl?`<img src="${item.imageUrl}" alt="card" onerror="this.innerHTML='📷'"/>`:'📷'}</div>
+      <div class="viewed-card-info">
+        <div class="viewed-card-title">${item.title}</div>
+        <div class="viewed-card-meta">
+          <span>$${parseFloat(item.price).toFixed(2)}</span>
+          ${item.frontScore?`<span class="badge ${item.frontScore>=90?'badge-green':item.frontScore>=75?'badge-yellow':'badge-red'}" style="font-size:11px;">Front ${item.frontScore}/100</span>`:''}
+          ${item.backScore?`<span class="badge badge-gray" style="font-size:11px;">Back ${item.backScore}/100</span>`:''}
+          <span style="color:var(--muted);font-size:11px;">Viewed ${date}</span>
+          <a class="ebay-link" href="${item.url}" target="_blank">eBay ↗</a>
+        </div>
+      </div>
+      <button class="remove-viewed" onclick="removeViewed('${item.id}')" title="Remove from viewed">×</button>
+    </div>`;
+  }).join('');
+}
+
+function removeViewed(id) {
+  delete viewed[id];
+  saveViewed();
+  renderViewedPage();
+  renderResults();
+}
+
+function resetViewed() {
+  if (!confirm('Reset all viewed listings? This will re-analyze them on next search.')) return;
+  viewed = {};
+  saveViewed();
+  renderResults();
+}
+
+function clearAllViewed() {
+  if (!confirm('Clear all viewed listings?')) return;
+  viewed = {};
+  saveViewed();
+  renderViewedPage();
+  renderResults();
+}
+
+function setProgress(pct, label) {
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('prog-lbl').textContent=label;
+}
+
+async function fetchAndAnalyze(imageUrl, side) {
+  const ir = await fetch(`/api/image?url=${encodeURIComponent(imageUrl)}`);
+  if (!ir.ok) throw new Error('image fetch failed');
+  const { base64, mediaType } = await ir.json();
+  const ar = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base64, mediaType, side })
+  });
+  return await ar.json();
+}
+
+async function runSearch() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  const minScore = parseInt(document.getElementById('minScore').value)||0;
+  const btn = document.getElementById('search-btn');
+  btn.disabled=true; btn.innerHTML='<div class="spinner"></div> Analyzing...';
+  abortSearch = false;
+  document.getElementById('stop-btn').style.display = 'inline-flex';
+  results=[];
+  document.getElementById('results-wrap').style.display='block';
+  document.getElementById('prog-wrap').style.display='block';
+  document.getElementById('metrics').style.display='none';
+  document.getElementById('results-list').innerHTML='';
+  document.getElementById('m-analyzed').textContent='0';
+
+  try {
+    setProgress(5,'Searching eBay...');
+    const params = new URLSearchParams({ q, mode, limit: document.getElementById('limit').value });
+    if (document.getElementById('minPrice').value) params.set('minPrice', document.getElementById('minPrice').value);
+    if (document.getElementById('maxPrice').value) params.set('maxPrice', document.getElementById('maxPrice').value);
+    if (document.getElementById('minRating').value) params.set('minRating', document.getElementById('minRating').value);
+    if (document.getElementById('minFeedback').value) params.set('minFeedback', document.getElementById('minFeedback').value);
+
+    const sr = await fetch(`/api/search?${params}`);
+    if (!sr.ok) { const e=await sr.json(); throw new Error(e.error||'Search failed'); }
+    const { listings, total } = await sr.json();
+    document.getElementById('m-found').textContent = total;
+    document.getElementById('metrics').style.display='grid';
+    setProgress(10, `Found ${listings.length} listings — analyzing...`);
+
+    const withCentering = [];
+    for (let i=0; i<listings.length; i++) {
+      const listing = listings[i];
+      let front = { lr:50, tb:50, score:0, notes:'No image.', inSlab:false };
+      let back = null, whitening = null, allImages = [], backImageUrl = null;
+
+      if (abortSearch) break;
+
+      // Skip listings already marked as viewed
+      if (viewed[listing.id]) {
+        withCentering.push({ ...listing, front: { lr:50, tb:50, score:0, notes:'Already viewed — skipped.', inSlab:false }, back:null, backImageUrl:null, photoCount:1, skipped:true });
+        document.getElementById('m-analyzed').textContent = i+1;
+        setProgress(10+Math.round(((i+1)/listings.length)*85), `Skipping viewed ${i+1}/${listings.length}...`);
+        results = withCentering.filter(r => !r.skipped && ((r.front?.score||0)===0 || (r.front?.score||0)>=minScore));
+        document.getElementById('m-passed').textContent = results.length;
+        renderResults();
+        continue;
+      }
+
+      try {
+        const imR = await fetch(`/api/item-images?itemId=${encodeURIComponent(listing.id)}`);
+        if (imR.ok) { const d = await imR.json(); allImages = d.images || []; }
+        const frontUrl = allImages[0] || listing.imageUrl;
+        if (frontUrl) front = await fetchAndAnalyze(frontUrl, 'front');
+        if (allImages.length >= 2) {
+          backImageUrl = allImages[1];
+          const backResult = await fetchAndAnalyze(allImages[1], 'back');
+          if (backResult.score > 0) back = backResult;
+
+          // Optionally check whitening on back image
+          if (document.getElementById('checkWhitening').checked) {
+            try {
+              const wImgR = await fetch(`/api/image?url=${encodeURIComponent(allImages[1])}`);
+              const { base64: wb64, mediaType: wmt } = await wImgR.json();
+              const wRes = await fetch('/api/whitening', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ base64: wb64, mediaType: wmt })
+              });
+              whitening = await wRes.json();
+            } catch(e) { whitening = null; }
+          }
+        }
+      } catch(e) {
+        front = { lr:50, tb:50, score:0, notes:'Analysis failed.', inSlab:false };
+      }
+
+      withCentering.push({ ...listing, front, back, whitening, backImageUrl, photoCount: allImages.length || 1 });
+      document.getElementById('m-analyzed').textContent = i+1;
+      setProgress(10+Math.round(((i+1)/listings.length)*85), `Analyzed ${i+1}/${listings.length}${back?' (front+back)':''}...`);
+      results = withCentering.filter(r => (r.front?.score||0)===0 || (r.front?.score||0)>=minScore);
+      document.getElementById('m-passed').textContent = results.length;
+      const best = Math.max(0, ...withCentering.map(r => r.front?.score||0));
+      document.getElementById('m-best').textContent = best>0 ? best+'/100' : '—';
+      renderResults();
+    }
+
+    document.getElementById('stop-btn').style.display = 'none';
+    setProgress(100, `Done — ${withCentering.length} analyzed`);
+    setTimeout(() => { document.getElementById('prog-wrap').style.display='none'; }, 1200);
+  } catch(err) {
+    document.getElementById('results-list').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><strong>${err.message}</strong></div>`;
+    document.getElementById('stop-btn').style.display = 'none';
+    document.getElementById('prog-wrap').style.display='none';
+  }
+
+  btn.disabled=false;
+  document.getElementById('stop-btn').style.display = 'none';
+  btn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Search &amp; analyze';
+}
+
+updateViewedCount();
+checkHealth();
+</script>
+</body>
+</html>
